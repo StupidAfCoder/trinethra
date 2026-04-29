@@ -270,6 +270,7 @@ func ReturnPrompt(transcript string) string {
     }
   ]
 }
+  Return only the JSON object. No preamble. No commentary. Start your response with {
 	Here is the transcript you are working with:\n
 	%s
 	`, transcript)

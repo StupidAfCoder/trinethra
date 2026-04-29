@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"trinethra/internal/handler"
 )
@@ -11,5 +12,6 @@ func main() {
 
 	http.HandleFunc("/analyze", handler.Analyze)
 
+	fmt.Print("Server Is Live!!")
 	http.ListenAndServe(":8080", nil)
 }
