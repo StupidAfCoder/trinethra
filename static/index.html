@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Trinethra – Transcript Analyzer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+    h1 { font-size: 1.6rem; margin-bottom: 8px; }
+    p.sub { color: #94a3b8; font-size: 0.9rem; margin-bottom: 24px; }
+    textarea {
+      width: 100%;
+      max-width: 720px;
+      height: 200px;
+      background: #1e2330;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.9rem;
+      resize: vertical;
+      outline: none;
+    }
+    textarea:focus { border-color: #6366f1; }
+    button {
+      margin-top: 12px;
+      padding: 10px 28px;
+      background: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:disabled { background: #4b5563; cursor: not-allowed; }
+    #error { color: #f87171; margin-top: 12px; font-size: 0.9rem; }
+    #results { width: 100%; max-width: 720px; margin-top: 32px; }
+    .card {
+      background: #1e2330;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+    }
+    .card h2 { font-size: 1rem; color: #a5b4fc; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .score-value { font-size: 2rem; font-weight: bold; color: #6366f1; }
+    .badge { display: inline-block; background: #334155; border-radius: 4px; padding: 2px 8px; font-size: 0.8rem; margin-left: 8px; vertical-align: middle; }
+    .item { border-top: 1px solid #334155; padding: 10px 0; font-size: 0.88rem; line-height: 1.6; }
+    .item:first-of-type { border-top: none; }
+    .label { color: #94a3b8; font-size: 0.78rem; text-transform: uppercase; margin-bottom: 2px; }
+  </style>
+</head>
+<body>
+  <h1>Trinethra</h1>
+  <p class="sub">Paste a conversation transcript below and hit Analyze.</p>
+
+  <textarea id="transcript" placeholder="Paste your transcript here..."></textarea>
+  <br/>
+  <button id="btn" onclick="analyze()">Analyze</button>
+  <div id="error"></div>
+  <div id="results"></div>
+
+  <script>
+    async function analyze() {
+      const transcript = document.getElementById("transcript").value.trim();
+      const btn = document.getElementById("btn");
+      const errorEl = document.getElementById("error");
+      const resultsEl = document.getElementById("results");
+
+      errorEl.textContent = "";
+      resultsEl.innerHTML = "";
+
+      if (!transcript) {
+        errorEl.textContent = "Please paste a transcript first.";
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = "Analyzing...";
+
+      try {
+        const res = await fetch("/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transcript })
+        });
+
+        if (!res.ok) {
+          const msg = await res.text();
+          throw new Error(msg);
+        }
+
+        const data = await res.json();
+        renderResults(data);
+      } catch (err) {
+        errorEl.textContent = "Error: " + err.message;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Analyze";
+      }
+    }
+
+    function renderResults(d) {
+      const el = document.getElementById("results");
+      el.innerHTML = `
+        ${scoreCard(d.score)}
+        ${listCard("Evidence", d.evidence, e => `
+          <div class="label">Quote</div><div>"${e.quote}"</div>
+          <div class="label" style="margin-top:6px">Signal</div><div>${e.signal}</div>
+          <div class="label" style="margin-top:6px">Dimension</div><div>${e.dimension}</div>
+          <div class="label" style="margin-top:6px">Interpretation</div><div>${e.interpretation}</div>
+        `)}
+        ${listCard("KPIs", d.kpi, k => `
+          <div class="label">KPI Map</div><div>${k.kpimap}</div>
+          <div class="label" style="margin-top:6px">Supervisor Map</div><div>${k.supervisormap}</div>
+          <div class="label" style="margin-top:6px">Layer</div><div>${k.layer}</div>
+        `)}
+        ${listCard("Gaps", d.gap, g => `
+          <div class="label">Dimension</div><div>${g.gap}</div>
+          <div class="label" style="margin-top:6px">Absent</div><div>${g.absent}</div>
+        `)}
+        ${listCard("Follow-up Questions", d.questions, q => `
+          <div>${q.questions}</div>
+          <div class="label" style="margin-top:4px">Gap: ${q.gap}</div>
+        `)}
+      `;
+    }
+
+    function scoreCard(s) {
+      return `<div class="card">
+        <h2>Score</h2>
+        <div><span class="score-value">${s.value}</span><span class="badge">${s.label}</span><span class="badge">${s.band}</span></div>
+        <div style="margin-top:10px; font-size:0.88rem">${s.justification}</div>
+        <div style="margin-top:6px; font-size:0.8rem; color:#94a3b8">Confidence: ${s.confidence}</div>
+      </div>`;
+    }
+
+    function listCard(title, items, renderItem) {
+      if (!items || items.length === 0) return "";
+      return `<div class="card">
+        <h2>${title}</h2>
+        ${items.map(i => `<div class="item">${renderItem(i)}</div>`).join("")}
+      </div>`;
+    }
+  </script>
+</body>
+</html>
