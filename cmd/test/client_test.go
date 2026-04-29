@@ -1,15 +1,16 @@
-package main
+package test
 
 import (
 	"fmt"
+	"testing"
 	"trinethra/internal/ollama"
 )
 
-func main() {
+func TestOllama(t *testing.T) {
 	response, err := ollama.SendToOllama("What is 2 + 2?")
 	if err != nil {
-		fmt.Println("Error ", err)
+		fmt.Printf("Error %v", err)
 		return
 	}
-	fmt.Println("Response ", response)
+	fmt.Print("Response ", response)
 }
